@@ -1568,7 +1568,8 @@ function calcs.buildDefenceEstimations(env, actor)
 			end
 			local resist = modDB:Flag(nil, "SelfIgnore"..damageType.."Resistance") and 0 or output[damageType.."ResistOverTime"] or output[damageType.."Resist"]
 			local reduction = modDB:Flag(nil, "SelfIgnore".."Base"..damageType.."DamageReduction") and 0 or output["Base"..damageType.."DamageReduction"]
-			output[damageType.."TakenDotMult"] = m_max((1 - resist / 100) * (1 - reduction / 100) * (1 + takenInc / 100) * takenMore, 0)
+			local afterConversion = actor.damageOverTimeShiftTable[damageType][damageType] / 100
+			output[damageType.."TakenDotMult"] = m_max((1 - resist / 100) * (1 - reduction / 100) * (1 + takenInc / 100) * takenMore * afterConversion, 0)
 			if breakdown then
 				breakdown[damageType.."TakenDotMult"] = { }
 				breakdown.multiChain(breakdown[damageType.."TakenDotMult"], {
@@ -1577,6 +1578,7 @@ function calcs.buildDefenceEstimations(env, actor)
 					{ "%.2f ^8(%s damage reduction)", (1 - reduction / 100), damageType:lower() },
 					{ "%.2f ^8(increased/reduced damage taken)", (1 + takenInc / 100) },
 					{ "%.2f ^8(more/less damage taken)", takenMore },
+					{ "%.2f ^8(damage after conversion)", afterConversion },
 					total = s_format("= %.2f", output[damageType.."TakenDotMult"]),
 				})
 			end
