@@ -1,3 +1,10 @@
+local lqc = require 'lqc.quickcheck'
+local property = require 'lqc.property'
+local random = require 'lqc.random'
+local report = require 'lqc.report'
+local int = require 'lqc.generators.int'
+local def = LoadModule('../spec/System/generators/DefenceGenerator')
+
 describe("TestDefence", function()
     before_each(function()
         newBuild()
@@ -7,8 +14,48 @@ describe("TestDefence", function()
         -- newBuild() takes care of resetting everything in setup()
     end)
 
+    -- a small helper function to calculate damage taken from limited test parameters
+    local function takenHitFromTypeMaxHit(type, enemyDamageMulti)
+        return build.calcsTab.calcs.takenHitFromDamage(build.calcsTab.calcsOutput[type.."MaximumHitTaken"] * (enemyDamageMulti or 1), type, build.calcsTab.calcsEnv.player)
+    end
+
+    describe("properties regarding defence #property", function()
+
+        before_each(function()
+            random.seed()
+            lqc.init(10, 10)
+            lqc.properties = {}
+        end)
+
+        teardown(function()
+            report.report_errors()
+        end)
+
+        it("random max hits", function()
+            property "taking max hit damage result in 0 life remaining" {
+                generators = { def },
+                check = function(mods)
+                    build.configTab.input.customMods = table.concat(mods,"\n\z")
+                    build.configTab:BuildModList()
+                    runCallback("OnFrame")
+    
+                    local satisfied = true
+                    for _,type in pairs({"Fire", "Cold", "Lightning", "Physical", "Chaos"}) do
+                        local _, takenDamages = takenHitFromTypeMaxHit(type)
+                        local poolsRemaining = build.calcsTab.calcs.reducePoolsByDamage(nil, takenDamages, build.calcsTab.calcsEnv.player)
+                        satisfied = satisfied and -1 <= poolsRemaining.Life and poolsRemaining.Life <= 1
+                    end
+                    return satisfied
+                end
+            }
+            lqc.check()
+            assert.False(lqc.failed)
+        end)
+    end)    
+
     -- boring part
     it("no armour max hits", function()
+        
         assert.are.equals(60, build.calcsTab.calcsOutput.PhysicalMaximumHitTaken)
         assert.are.equals(38, build.calcsTab.calcsOutput.FireMaximumHitTaken)
         assert.are.equals(38, build.calcsTab.calcsOutput.ColdMaximumHitTaken)
@@ -83,11 +130,6 @@ describe("TestDefence", function()
         assert.are.equals(3000, build.calcsTab.calcsOutput.LightningMaximumHitTaken)
         assert.are.equals(3000, build.calcsTab.calcsOutput.ChaosMaximumHitTaken)
     end)
-    
-    -- a small helper function to calculate damage taken from limited test parameters
-    local function takenHitFromTypeMaxHit(type, enemyDamageMulti)
-        return build.calcsTab.calcs.takenHitFromDamage(build.calcsTab.calcsOutput[type.."MaximumHitTaken"] * (enemyDamageMulti or 1), type, build.calcsTab.calcsEnv.player)
-    end
     
     it("progenesis and petrified blood", function()
         -- Petrified blood
